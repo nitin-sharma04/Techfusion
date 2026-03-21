@@ -260,10 +260,13 @@ python -m new_osworld replay trajectory.jsonl \
 </div>
 
 ```bash
+# Human-in-the-loop single task evaluation
+python -m new_osworld human evaluation_examples/examples/os/5ea617a3.json --provider vmware
+
 # Convert trajectory to notebook
 python -m new_osworld convert-trajectory trajectory.jsonl --task-config task.json
 
-# Show configuration
+# Show configuration and system info
 python -m new_osworld info
 ```
 
@@ -276,31 +279,46 @@ All settings live in `config.yaml`. CLI flags override any value.
 ```yaml
 # ═══════════════════════════════════════════════════════════════════════════
 # 🌍 New-OSWorld Configuration
+# Override any value via CLI flags
 # ═══════════════════════════════════════════════════════════════════════════
 
 environment:
-  provider: vmware          # vmware | docker | aws | azure | aliyun | volcengine
+  provider: docker                # vmware | docker (production-ready)
+  region: us-east-1
+  path_to_vm: null                # auto-detected if null
+  snapshot_name: init_state
+  action_space: pyautogui         # pyautogui | computer_13 | claude_computer_use
+  observation_type: screenshot    # screenshot | a11y_tree | screenshot_a11y_tree | som
   screen_width: 1920
   screen_height: 1080
   headless: false
   os_type: Ubuntu
+  enable_proxy: false
+  client_password: ""
 
 agent:
   model: gpt-4o
   temperature: 1.0
+  top_p: 0.9
   max_tokens: 1500
   max_trajectory_length: 3
+  a11y_tree_max_tokens: 10000
+  platform: ubuntu                # ubuntu | windows
 
 evaluation:
-  max_steps: 15
-  result_dir: ./results
+  test_config_base_dir: evaluation_examples
   test_meta_path: evaluation_examples/test_all.json
+  domain: all                     # all | specific domain name
+  max_steps: 15
+  sleep_after_execution: 0.0
+  result_dir: ./results
 
 execution:
-  num_workers: 1
+  num_workers: 1                  # parallel VM workers
 
 logging:
   level: INFO
+  log_dir: logs
   colored_output: true
 ```
 
@@ -371,13 +389,13 @@ link         Settings       Settings          960       400       80     20
 
 | Provider | Type | Best For | Status |
 |:---------|:-----|:---------|:-------|
-| **VMware** | Local | Development, SFT collection | ✅ Ready |
-| **Docker** | Local | CI/CD, lightweight testing | ✅ Ready |
-| **VirtualBox** | Local | Free alternative to VMware | ✅ Ready |
-| **AWS** | Cloud | Large-scale parallel evaluation | ✅ Ready |
-| **Azure** | Cloud | Enterprise environments | ✅ Ready |
-| **Aliyun** | Cloud | China region | ✅ Ready |
-| **Volcengine** | Cloud | China region | ✅ Ready |
+| **VMware** | Local | Development, SFT collection | ✅ Production |
+| **Docker** | Local | CI/CD, lightweight testing | ✅ Production |
+| **VirtualBox** | Local | Free alternative to VMware | 🔧 Planned |
+| **AWS** | Cloud | Large-scale parallel evaluation | 🔧 Planned |
+| **Azure** | Cloud | Enterprise environments | 🔧 Planned |
+| **Aliyun** | Cloud | China region | 🔧 Planned |
+| **Volcengine** | Cloud | China region | 🔧 Planned |
 
 </div>
 
@@ -487,7 +505,7 @@ New-OSWorld/
 
 <div align="center">
 
-**Apache 2.0** © 2024 New-OSWorld Contributors
+**Apache 2.0** © 2025-2026 New-OSWorld Contributors
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-00C853?style=for-the-badge&logo=apache&logoColor=white)](LICENSE)
 

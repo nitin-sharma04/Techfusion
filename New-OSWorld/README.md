@@ -1,124 +1,331 @@
 # New-OSWorld
 
-A clean, modular desktop environment benchmark for evaluating multimodal AI agents on real-world computer tasks.
+A modular desktop environment benchmark for evaluating and fine-tuning multimodal AI agents on real-world computer tasks.
+
+Agents interact with live virtual machines through screenshots, accessibility trees, and pyautogui commands -- performing tasks like changing browser settings, editing spreadsheets, managing files, and configuring applications.
+
+---
+
+## Features
+
+- **Unified CLI** -- One command with 9 subcommands replaces everything: evaluation, SFT collection, trajectory replay, validation, results
+- **Interactive SFT Data Collection** -- Step through tasks manually, record golden trajectories with before/after screenshots, enriched coordinate tables, and auto-generated notebooks
+- **Enriched Accessibility Tree** -- Every step saves parsed TSV coordinate tables alongside raw XML so you instantly know where to click
+- **Multi-Model Support** -- GPT-4o, Claude 3, Gemini, Llama 3, Qwen, Mistral -- each with a dedicated client module
+- **7 VM Providers** -- VMware, VirtualBox, Docker, AWS, Azure, Aliyun, Volcengine
+- **Parallel Evaluation** -- Run multiple VM workers simultaneously for faster benchmarking
+- **Rich Terminal Output** -- Progress bars, formatted tables, colored logs
+- **Pydantic Config** -- Single `config.yaml` validated at startup, overridable via CLI flags
+- **Auto Notebook Generation** -- SFT trajectories automatically converted to Jupyter notebooks
+- **Delivery Validation** -- Validate task deliverables against the schema with structured reports
+
+---
 
 ## Architecture
 
 ```
 New-OSWorld/
-├── config.yaml                  # Unified configuration (single source of truth)
-├── pyproject.toml               # Modern Python packaging
-├── requirements.txt             # Flat dependency list
+├── config.yaml                     # Unified configuration
+├── manual_task.json                # SFT task selector
+├── pyproject.toml                  # Modern Python packaging
 │
-└── new_osworld/                 # Main package
-    ├── cli.py                   # Unified CLI (evaluate, results, human, info)
-    ├── config.py                # Pydantic config models + YAML loader
-    ├── logging_setup.py         # Centralised logging (configured once)
+└── new_osworld/
+    ├── cli.py                      # 9 CLI commands
+    ├── config.py                   # Pydantic config models + YAML
+    ├── logging_setup.py            # Centralized logging
     │
-    ├── environment/             # Desktop VM environment (Gymnasium-compatible)
-    │   ├── desktop_env.py       # Core DesktopEnv class
-    │   ├── actions.py           # Action space definitions
-    │   ├── controllers/         # HTTP controllers for the in-VM server
-    │   │   ├── python_controller.py
-    │   │   └── setup_controller.py
-    │   ├── providers/           # VM providers (Docker, AWS, VMware, etc.)
-    │   │   ├── base.py          # Abstract Provider + VMManager
-    │   │   └── __init__.py      # Factory with lazy imports
-    │   └── evaluators/          # Task evaluation (metrics + getters)
+    ├── environment/
+    │   ├── desktop_env.py          # Gymnasium-compatible DesktopEnv
+    │   ├── actions.py              # Action space definitions
+    │   ├── controllers/
+    │   │   ├── python_controller.py  # VM HTTP communication
+    │   │   └── setup_controller.py   # Task environment setup
+    │   ├── providers/              # VMware, Docker, AWS, Azure, ...
+    │   │   ├── base.py             # Abstract Provider + VMManager
+    │   │   ├── vmware.py           # VMware Workstation / Fusion
+    │   │   ├── docker.py           # Docker + QEMU
+    │   │   └── ...
+    │   └── evaluators/             # Metrics + Getters for scoring
     │
-    ├── agents/                  # LLM-powered automation agents
-    │   ├── base.py              # Abstract BaseAgent
-    │   ├── prompt_agent.py      # Main multi-turn prompt agent
-    │   ├── prompts.py           # System prompts (deduplicated)
-    │   ├── llm_clients/         # Per-provider LLM clients
-    │   │   ├── base.py          # Abstract LLMClient
+    ├── agents/
+    │   ├── base.py                 # Abstract BaseAgent
+    │   ├── prompt_agent.py         # Multi-turn vision agent
+    │   ├── prompts.py              # System prompts
+    │   ├── llm_clients/            # One file per LLM provider
     │   │   ├── openai_client.py
     │   │   ├── anthropic_client.py
     │   │   ├── google_client.py
     │   │   ├── groq_client.py
     │   │   └── dashscope_client.py
-    │   └── utils/               # Shared utilities
-    │       ├── parsing.py       # Action/code extraction from LLM output
-    │       ├── a11y_tree.py     # Accessibility tree processing
-    │       └── image_utils.py   # Base64 encoding/decoding
+    │   └── utils/
+    │       ├── parsing.py          # Extract actions from LLM output
+    │       ├── a11y_tree.py        # Accessibility tree processing
+    │       └── image_utils.py      # Base64 encoding / decoding
     │
-    ├── runner/                  # Task execution engines
-    │   ├── single.py            # Single-task runner
-    │   ├── batch.py             # Sequential batch runner (with progress bar)
-    │   └── parallel.py          # Multi-process parallel runner
+    ├── runner/
+    │   ├── single.py               # Single task execution
+    │   ├── batch.py                # Sequential evaluation with progress
+    │   ├── parallel.py             # Multi-process worker pool
+    │   ├── manual.py               # Interactive SFT collection
+    │   └── a11y_enricher.py        # Coordinate extraction + TSV tables
     │
-    └── results/                 # Result aggregation
-        └── analyzer.py          # Rich-formatted result tables
+    ├── results/
+    │   └── analyzer.py             # Rich-formatted result tables
+    │
+    └── tech_tooling/
+        ├── notebook_builder.py     # Trajectory → SFT notebook
+        ├── trajectory_replayer.py  # Replay + evaluate trajectories
+        ├── delivery_validator.py   # Schema validation
+        └── trajectory_converter.py # JSONL → notebook converter
 ```
 
-## Key Improvements Over OSWorld-SFT
-
-| Area | Before | After |
-|------|--------|-------|
-| **Entry points** | 15+ separate `run_*.py` scripts | Single CLI: `osworld evaluate` |
-| **Configuration** | CLI args scattered across files | `config.yaml` + Pydantic validation |
-| **Logging** | Copy-pasted 30-line blocks in every file | `setup_logging()` called once |
-| **LLM clients** | 1200-line if/elif chain in `agent.py` | Separate client classes per provider |
-| **Error handling** | Bare `except:`, `type() ==` checks | Typed exceptions, `isinstance()` |
-| **Code duplication** | `get_unfinished` copied 12 times | Single implementation in `batch.py` |
-| **Progress reporting** | Inconsistent `tqdm` usage | Rich progress bars + colored output |
-| **Output** | Plain `print()` statements | Rich console tables and formatting |
-| **Prompts** | Massive repeated action-space text | Deduplicated, parameterised templates |
-| **Packaging** | `setup.py` with inline deps | `pyproject.toml` with optional dep groups |
+---
 
 ## Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- VMware Workstation / Fusion **or** Docker
 
 ### Installation
 
 ```bash
-# Install core package
-pip install -e .
+git clone https://github.com/your-org/New-OSWorld.git
+cd New-OSWorld
 
-# Install with all optional dependencies
+# Install with all dependencies
 pip install -e ".[all]"
 
-# Or install specific groups
-pip install -e ".[agents,eval,cloud]"
+# Or install only what you need
+pip install -e .                 # Core only
+pip install -e ".[agents]"      # + LLM libraries
+pip install -e ".[eval]"        # + Evaluation dependencies
+pip install -e ".[cloud]"       # + Cloud provider SDKs
 ```
 
-### Configuration
-
-Edit `config.yaml` or override via CLI flags:
+### Download VM & Start
 
 ```bash
-# Use config file defaults
-osworld evaluate
-
-# Override specific settings
-osworld evaluate --model gpt-4o --provider docker --num-workers 4
-
-# Point to a custom config
-osworld evaluate --config /path/to/my-config.yaml
+# Downloads ~12 GB VM image on first run, then starts the VM
+python -m new_osworld start-vm --provider vmware
 ```
 
-### Commands
+### Verify
 
 ```bash
-# Run the full benchmark
-osworld evaluate --model gpt-4o --provider docker
-
-# Run a specific domain
-osworld evaluate --domain libreoffice_calc
-
-# Run with multiple parallel VMs
-osworld evaluate --num-workers 4
-
-# View results
-osworld results --model gpt-4o
-
-# Human-in-the-loop mode
-osworld human evaluation_examples/examples/os/example.json
-
-# Show configuration info
-osworld info
+python -m new_osworld info
 ```
 
-### Environment Variables
+---
+
+## Commands
+
+### `start-vm` -- Download and boot the VM
+
+```bash
+python -m new_osworld start-vm --provider vmware
+```
+
+Downloads the Ubuntu VM image (~12 GB) if not cached, starts it, and keeps it running until Ctrl+C.
+
+### `sft` -- Interactive SFT data collection
+
+```bash
+python -m new_osworld sft --provider vmware --task-file manual_task.json --sft-output SFT
+```
+
+Steps through each task interactively. You type pyautogui commands:
+
+```
+Step 1/15 | Enter action (e.g., pg.click(100, 200)): pg.click(1901, 44)
+  Saved: XML + coords.tsv + interactive.tsv (375 elements with coordinates)
+  Executed: pg.click(1901, 44)
+
+Step 2/15 | Enter action (e.g., pg.click(100, 200)): pg.typewrite('hello')
+  Executed: pg.typewrite('hello')
+
+Step 3/15 | Enter action (e.g., pg.click(100, 200)): done
+  Task marked as done.
+
+Evaluation score: 1.00
+Notebook saved:    SFT/chrome/bb5e.../osw.sft.ipynb
+Trajectory saved:  SFT/chrome/bb5e.../trajectory.jsonl
+Recording saved:   SFT/chrome/bb5e.../recording.mp4
+```
+
+**SFT output per task:**
+
+| File | Description |
+|------|-------------|
+| `step_N_before.png` | Screenshot before action N |
+| `step_N_after.png` | Screenshot after action N |
+| `step_N_before.xml` | Full accessibility tree XML |
+| `step_N_coords.tsv` | All elements with coordinates |
+| `step_N_interactive.tsv` | Clickable elements with click coordinates |
+| `trajectory.jsonl` | Complete action log |
+| `recording.mp4` | Screen recording |
+| `result.txt` | Evaluation score |
+| `*.ipynb` | Auto-generated SFT notebook |
+
+**Selecting tasks:** Edit `manual_task.json`:
+
+```json
+{
+  "chrome": ["bb5e4c0d-f964-439c-97b6-bdb9747de3f4"],
+  "os": ["5ea617a3-0e86-4ba6-aab2-dac9aa2e8d57"],
+  "vs_code": ["0ed39f63-6049-43d4-ba4d-5fa2fe04a951"]
+}
+```
+
+### `evaluate` -- Automated benchmark evaluation
+
+```bash
+# Single worker
+python -m new_osworld evaluate --model gpt-4o --provider vmware
+
+# Parallel (4 VMs)
+python -m new_osworld evaluate --model gpt-4o --provider docker --num-workers 4
+
+# Specific domain
+python -m new_osworld evaluate --model claude-3-opus --domain libreoffice_calc
+```
+
+### `results` -- View evaluation results
+
+```bash
+python -m new_osworld results --model gpt-4o
+```
+
+```
+┌─────────────────────────────────────────────────────┐
+│     Results: gpt-4o / pyautogui / screenshot        │
+├──────────────────┬───────────┬─────────────────────┤
+│ Domain           │ Completed │      Success Rate   │
+├──────────────────┼───────────┼─────────────────────┤
+│ chrome           │        10 │              50.0%  │
+│ libreoffice_calc │         8 │              37.5%  │
+│ vs_code          │         6 │              66.7%  │
+├──────────────────┼───────────┼─────────────────────┤
+│ Office           │        20 │              45.0%  │
+│ Daily            │        15 │              53.3%  │
+│ Professional     │        10 │              60.0%  │
+├──────────────────┼───────────┼─────────────────────┤
+│ OVERALL          │        45 │              51.1%  │
+└──────────────────┴───────────┴─────────────────────┘
+```
+
+### `validate` -- Validate a task delivery
+
+```bash
+python -m new_osworld validate ./Deliverable/my-task/
+```
+
+```
+┌──────────────────────────────────────────────────┐
+│          Validation: ./Deliverable/my-task/       │
+├────────────────────┬────────┬────────────────────┤
+│ Check              │ Status │ Details            │
+├────────────────────┼────────┼────────────────────┤
+│ Directory Structure│  PASS  │ OK                 │
+│ JSON Schema        │  PASS  │ OK                 │
+│ Notebook Cells     │  PASS  │ OK                 │
+│ Evaluation Score   │  PASS  │ OK                 │
+├────────────────────┼────────┼────────────────────┤
+│ Overall            │  ALL PASSED                 │
+└────────────────────┴────────┴────────────────────┘
+```
+
+### `replay` -- Replay a recorded trajectory
+
+```bash
+python -m new_osworld replay trajectory.jsonl \
+    --task-config evaluation_examples/examples/chrome/bb5e4c0d.json \
+    --provider vmware
+```
+
+### `convert-trajectory` -- Convert trajectory to notebook
+
+```bash
+python -m new_osworld convert-trajectory trajectory.jsonl --task-config task.json
+```
+
+### `info` -- Show configuration
+
+```bash
+python -m new_osworld info
+```
+
+---
+
+## Configuration
+
+All settings live in `config.yaml`. CLI flags override any value.
+
+```yaml
+environment:
+  provider: vmware          # vmware | docker | aws | azure | ...
+  screen_width: 1920
+  screen_height: 1080
+  headless: false
+  os_type: Ubuntu
+
+agent:
+  model: gpt-4o
+  temperature: 1.0
+  max_tokens: 1500
+  max_trajectory_length: 3
+
+evaluation:
+  max_steps: 15
+  result_dir: ./results
+  test_meta_path: evaluation_examples/test_all.json
+
+execution:
+  num_workers: 1
+
+logging:
+  level: INFO
+  colored_output: true
+```
+
+---
+
+## Supported Action Types
+
+| Action | Example |
+|--------|---------|
+| Left click | `pg.click(100, 200)` |
+| Right click | `pg.rightClick(100, 200)` |
+| Double click | `pg.doubleClick(100, 200)` |
+| Type text | `pg.typewrite('hello world')` |
+| Press key | `pg.press('enter')` |
+| Key combo | `pg.hotkey('ctrl', 'c')` |
+| Scroll | `pg.scroll(-3)` |
+| Mouse move | `pg.moveTo(100, 200)` |
+| Drag | `pg.drag(100, 200)` |
+| Wait | `time.sleep(2)` |
+
+---
+
+## Enriched Coordinate System
+
+Every SFT step generates a `step_N_interactive.tsv` file with ready-to-use click coordinates:
+
+```
+tag          name           text              center_x  center_y  width  height
+push-button  Close          Close             1901      44        38     35
+push-button  Reload         Reload            164       90        34     34
+page-tab     New Tab        Memory - 52 MB    226       47        256    41
+entry        Address bar    https://...       560       90        700    34
+link         Settings       Settings          960       400       80     20
+```
+
+Use `center_x` and `center_y` directly: `pg.click(1901, 44)` to click "Close".
+
+---
+
+## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
@@ -130,36 +337,53 @@ osworld info
 | `TOGETHER_API_KEY` | Together AI API key |
 | `AZURE_OPENAI_API_KEY` | Azure OpenAI key |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL |
-| `OSWORLD_CONFIG` | Path to config file (overrides search) |
+| `OSWORLD_CONFIG` | Override path to config file |
+
+---
 
 ## Supported Providers
 
-- **Docker** -- Containerised VMs (default, recommended for development)
-- **VMware** -- VMware Workstation / Fusion
-- **VirtualBox** -- Oracle VirtualBox
-- **AWS** -- Amazon EC2 instances
-- **Azure** -- Azure Virtual Machines
-- **Aliyun** -- Alibaba Cloud ECS
-- **Volcengine** -- ByteDance Volcengine
+| Provider | Type | Best For |
+|----------|------|----------|
+| **VMware** | Local | Development, SFT collection |
+| **Docker** | Local | CI/CD, lightweight testing |
+| **VirtualBox** | Local | Free alternative to VMware |
+| **AWS** | Cloud | Large-scale parallel evaluation |
+| **Azure** | Cloud | Enterprise environments |
+| **Aliyun** | Cloud | China region |
+| **Volcengine** | Cloud | China region |
+
+---
 
 ## Supported Models
 
-- **OpenAI**: `gpt-4o`, `gpt-4-turbo`, `gpt-4-vision-preview`, etc.
-- **Anthropic**: `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku`, etc.
-- **Google**: `gemini-pro`, `gemini-pro-vision`, `gemini-1.5-pro`, etc.
-- **Groq**: `llama3-70b`
-- **Alibaba**: `qwen-vl-plus`, `qwen-vl-max`, `qwen-max`, etc.
-- **Together/Mistral**: `mistral-*` (via Together AI)
+| Provider | Models |
+|----------|--------|
+| **OpenAI** | gpt-4o, gpt-4-turbo, gpt-4-vision-preview |
+| **Anthropic** | claude-3-opus, claude-3-sonnet, claude-3-haiku |
+| **Google** | gemini-1.5-pro, gemini-pro-vision |
+| **Groq** | llama3-70b |
+| **Alibaba** | qwen-vl-plus, qwen-vl-max, qwen-max |
+| **Together** | mistral-* |
 
-## Detailed Documentation
+---
 
-See [DOCUMENTATION.md](DOCUMENTATION.md) for the complete comparison between New-OSWorld and OSWorld-SFT, including:
+## Task Domains
 
-- Architecture differences (flat scripts vs modular package)
-- All bug fixes from the old repo
-- SFT enriched coordinate system
-- Command reference mapping (old to new)
-- Design principles
+| Domain | Application | Example Tasks |
+|--------|------------|---------------|
+| `chrome` | Google Chrome | Change search engine, delete cookies, manage extensions |
+| `gimp` | GIMP | Resize images, apply filters, change backgrounds |
+| `libreoffice_calc` | Calc | Create charts, apply formulas, format tables |
+| `libreoffice_impress` | Impress | Edit slides, add transitions, change layouts |
+| `libreoffice_writer` | Writer | Format documents, insert page breaks, edit headers |
+| `multi_apps` | Multiple | Cross-app tasks (e.g., copy from web to spreadsheet) |
+| `os` | Ubuntu OS | Change wallpaper, manage files, configure settings |
+| `thunderbird` | Thunderbird | Create filters, manage folders, configure accounts |
+| `vlc` | VLC | Change playback settings, configure audio |
+| `vs_code` | VS Code | Edit settings, install extensions, run scripts |
+
+---
 
 ## License
 

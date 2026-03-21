@@ -1,0 +1,46 @@
+# New-OSWorld Unified Configuration
+# Override any value via CLI flags or environment variables (prefixed with OSWORLD_)
+
+environment:
+  provider: docker                # vmware | virtualbox | docker | aws | azure | aliyun | volcengine
+  region: us-east-1
+  path_to_vm: null                # auto-detected if null
+  snapshot_name: init_state
+  action_space: pyautogui         # pyautogui | computer_13 | claude_computer_use
+  observation_type: screenshot    # screenshot | a11y_tree | screenshot_a11y_tree | som
+  screen_width: 1920
+  screen_height: 1080
+  headless: false
+  require_a11y_tree: true
+  require_terminal: false
+  os_type: Ubuntu
+  enable_proxy: false
+  client_password: ""             # defaults to "password" or "osworld-public-evaluation" for AWS
+  cache_dir: cache
+
+agent:
+  model: gpt-4o
+  temperature: 1.0
+  top_p: 0.9
+  max_tokens: 1500
+  max_trajectory_length: 3
+  a11y_tree_max_tokens: 10000
+  platform: ubuntu                # ubuntu | windows
+
+evaluation:
+  test_config_base_dir: evaluation_examples
+  test_meta_path: evaluation_examples/test_all.json
+  domain: all                     # all | specific domain name
+  max_steps: 15
+  sleep_after_execution: 0.0
+  result_dir: ./results
+
+execution:
+  num_workers: 1                  # number of parallel environments
+  retry_limit: 5
+  retry_interval: 5
+
+logging:
+  level: INFO                     # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  log_dir: logs
+  colored_output: true

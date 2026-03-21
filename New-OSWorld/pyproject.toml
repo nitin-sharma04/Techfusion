@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "new-osworld"
+version = "2.0.0"
+description = "Desktop environment benchmark for evaluating multimodal AI agents on real-world computer tasks."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy>=1.26.0",
+    "Pillow>=10.0.0",
+    "fabric",
+    "gymnasium>=0.29.0",
+    "requests>=2.31.0",
+    "pytz",
+    "tqdm",
+    "click",
+    "rich",
+    "pyyaml",
+    "pydantic>=2.0",
+    "backoff",
+    "tiktoken",
+    "openai",
+    "anthropic",
+    "python-dotenv",
+    "filelock",
+    "psutil",
+    "lxml",
+    "cssselect",
+    "xmltodict",
+]
+
+[project.optional-dependencies]
+agents = [
+    "transformers>=4.38.0",
+    "torch>=2.2.0",
+    "accelerate",
+    "dashscope",
+    "google-generativeai",
+    "groq",
+]
+eval = [
+    "opencv-python",
+    "matplotlib",
+    "pandas",
+    "openpyxl",
+    "python-docx",
+    "python-pptx",
+    "pypdf",
+    "rapidfuzz",
+    "scikit-image",
+    "pymupdf",
+    "chardet",
+    "playwright",
+    "beautifulsoup4",
+    "pdfplumber",
+    "ImageHash",
+    "librosa",
+    "formulas",
+    "odfpy",
+    "easyocr",
+    "mutagen",
+    "fastdtw",
+    "borb",
+]
+cloud = [
+    "boto3",
+    "azure-identity",
+    "azure-mgmt-compute",
+    "azure-mgmt-network",
+    "google-cloud-compute",
+    "docker",
+]
+all = ["new-osworld[agents,eval,cloud]"]
+
+[project.scripts]
+osworld = "new_osworld.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["new_osworld*"]

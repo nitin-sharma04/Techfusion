@@ -161,8 +161,30 @@ class VMwareProvider(Provider):
         self._run([VMRUN] + _vmrun_type(True) + ["snapshot", abs_path, snapshot_name], timeout=120)
         sleep(WAIT_TIME)
 
+    def has_snapshot(self, path_to_vm: str, snapshot_name: str) -> bool:
+        """Check whether the named snapshot exists for this VM."""
+        abs_path = os.path.abspath(os.path.normpath(path_to_vm))
+        out = self._run(
+            [VMRUN] + _vmrun_type(True) + ["listSnapshots", abs_path],
+            capture=True, timeout=30,
+        )
+        if out and snapshot_name in out:
+            return True
+        logger.error(
+            "Snapshot '%s' NOT FOUND for VM %s. Available: %s",
+            snapshot_name, abs_path, out or "(none)",
+        )
+        return False
+
     def revert_to_snapshot(self, path_to_vm: str, snapshot_name: str) -> Optional[str]:
         abs_path = os.path.abspath(os.path.normpath(path_to_vm))
+        if not self.has_snapshot(abs_path, snapshot_name):
+            logger.error(
+                "CANNOT revert -- snapshot '%s' does not exist for %s. "
+                "VM will continue in its current (dirty) state.",
+                snapshot_name, abs_path,
+            )
+            return path_to_vm
         logger.info("Reverting to snapshot '%s' ...", snapshot_name)
         self._run([VMRUN] + _vmrun_type(True) + ["revertToSnapshot", abs_path, snapshot_name], timeout=120)
         sleep(WAIT_TIME)
@@ -173,6 +195,7 @@ class VMwareProvider(Provider):
         logger.info("Stopping VMware VM ...")
         self._run([VMRUN] + _vmrun_type(True) + ["stop", abs_path], timeout=60)
         sleep(WAIT_TIME)
+
 
 
 # ---------------------------------------------------------------------------

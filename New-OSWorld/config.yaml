@@ -31,7 +31,7 @@ evaluation:
   test_config_base_dir: evaluation_examples
   test_meta_path: evaluation_examples/test_all.json
   domain: all                     # all | specific domain name
-  max_steps: 15
+  max_steps: 150
   sleep_after_execution: 0.0
   result_dir: ./results
 

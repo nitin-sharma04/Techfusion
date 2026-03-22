@@ -199,6 +199,43 @@ class DesktopEnv(gym.Env):
         if new_path:
             self.path_to_vm = new_path
 
+    def _post_boot_fixups(self) -> None:
+        """Disable the GNOME captive-portal popup and verify network after VM boots."""
+        logger.info("Running post-boot fixups ...")
+        self.controller.execute_python_command(
+            "import subprocess; "
+            "subprocess.run(['sudo', 'bash', '-c', "
+            "'mkdir -p /etc/NetworkManager/conf.d && "
+            "printf \"[connectivity]\\nenabled=false\\n\" > /etc/NetworkManager/conf.d/99-no-portal.conf && "
+            "systemctl restart NetworkManager'"
+            "], capture_output=True); "
+            "subprocess.run(['pkill', '-f', 'nmcheck'], capture_output=True); "
+            "subprocess.run(['pkill', '-f', 'Hotspot'], capture_output=True); "
+            "subprocess.run(['pkill', '-f', 'captive'], capture_output=True)"
+        )
+        time.sleep(3)
+
+        check_script = (
+            "import subprocess; "
+            "r = subprocess.run(['ping', '-c', '1', '-W', '5', '8.8.8.8'], "
+            "capture_output=True); "
+            "print('NET_OK' if r.returncode == 0 else 'NET_FAIL')"
+        )
+        for attempt in range(1, 4):
+            result = self.controller.execute_python_command(check_script)
+            output = (result or {}).get("output", "")
+            if "NET_OK" in output:
+                logger.info("VM network connectivity verified.")
+                return
+            logger.warning("VM network check failed (attempt %d/3) -- restarting networking ...", attempt)
+            self.controller.execute_python_command(
+                "import subprocess; "
+                "subprocess.run(['sudo', 'systemctl', 'restart', 'NetworkManager'], capture_output=True); "
+                "subprocess.run(['sudo', 'dhclient'], capture_output=True)"
+            )
+            time.sleep(10)
+        logger.error("VM network is unreachable after 3 attempts. Continuing anyway.")
+
     def close(self) -> None:
         """Shut down the virtual machine."""
         self.provider.stop_emulator(self.path_to_vm)
@@ -239,7 +276,9 @@ class DesktopEnv(gym.Env):
             if self._environment_dirty:
                 logger.info("Environment is dirty -- reverting to snapshot.")
                 self._revert_to_snapshot()
+                logger.info("Starting emulator ...")
                 self._start_emulator()
+                self._post_boot_fixups()
                 self._environment_dirty = False
             else:
                 logger.info("Environment is clean (provider=%s), skipping revert.", self.provider_name)
